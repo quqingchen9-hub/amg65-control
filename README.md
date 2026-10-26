@@ -88,7 +88,7 @@ npm run build:app       # .app in desktop/dist
 npm run dist            # .dmg in desktop/dist
 ```
 
-The checked-in build is unsigned and not notarized. On first launch, use
+The generated build is ad-hoc signed and not notarized. On first launch, use
 Finder's **Open** context menu or allow it under **System Settings > Privacy
 & Security**. See [desktop/README.md](desktop/README.md) for the app layout
 and menu-bar behavior.

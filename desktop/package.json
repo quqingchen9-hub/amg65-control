@@ -1,0 +1,98 @@
+{
+  "name": "amg65-control",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "author": "AMG65 Control",
+  "description": "LEOBOG AMG65 macOS desktop control console",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build:web": "tsc --noEmit && vite build",
+    "build:backend": "bash scripts/build-backend.sh",
+    "build:app": "npm run build:web && electron-builder --mac dir --arm64",
+    "dist": "npm run build:web && electron-builder --mac dmg --arm64",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "@radix-ui/react-slider": "^1.6.1",
+    "@radix-ui/react-switch": "^1.4.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sonner": "^2.0.8",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "build": {
+    "appId": "com.leobog.amg65.control",
+    "productName": "AMG65 Control",
+    "artifactName": "AMG65-Control-${version}-${arch}.${ext}",
+    "asar": true,
+    "files": [
+      "dist/index.html",
+      "dist/assets/**/*",
+      "dist/keyboard.png",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/amg65-backend",
+        "to": "backend"
+      },
+      {
+        "from": "../tool/agent_hook.sh",
+        "to": "backend/agent_hook.sh"
+      },
+      {
+        "from": "build/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "build/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "target": [
+        "dmg"
+      ],
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSHighResolutionCapable": true,
+        "NSHumanReadableCopyright": "LEOBOG AMG65 macOS control console"
+      }
+    },
+    "dmg": {
+      "title": "AMG65 Control",
+      "backgroundColor": "#f5f5f7",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

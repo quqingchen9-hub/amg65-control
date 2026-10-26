@@ -18,6 +18,7 @@ desktop/backend/dist/
 
 # Runtime and development artifacts
 panel/settings.json
+desktop/public/presets/
 .playwright-cli/
 desktop/.playwright/
 *.log
@@ -34,4 +35,3 @@ vendor/
 # Local tool state
 .idea/
 .vscode/
-

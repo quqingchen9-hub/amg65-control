@@ -1,0 +1,4 @@
+# Only needed to rerun the scripts in re_scripts/ against the vendor driver.
+pefile>=2023.2.7
+capstone>=5.0
+

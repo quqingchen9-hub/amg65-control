@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+desktop/.build-venv/
+
+# Node / Electron
+desktop/node_modules/
+desktop/dist/
+desktop/output/
+desktop/backend/build/
+desktop/backend/dist/
+
+# Runtime and development artifacts
+panel/settings.json
+.playwright-cli/
+desktop/.playwright/
+*.log
+*.bak-*
+*.orig
+
+# Local reverse-engineering inputs and generated archives
+extracted/
+vendor/
+*.zip
+*.exe
+*.dll
+
+# Local tool state
+.idea/
+.vscode/
+

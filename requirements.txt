@@ -1,0 +1,5 @@
+Pillow>=10.0
+hidapi>=0.14
+pyusb>=1.2
+psutil>=5.9
+

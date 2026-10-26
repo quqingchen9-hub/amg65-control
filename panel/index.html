@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEOBOG AMG65 · 屏幕控制台</title>
+<style>
+  :root {
+    --bg: #0b0f1a; --panel: #111827; --panel2: #151d2e; --line: #232d42;
+    --text: #e5e9f2; --dim: #8b95ab; --acc: #7c6cff; --acc2: #4f8cff;
+    --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 70% -10%, #1a2340 0%, var(--bg) 55%);
+    color: var(--text); font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 28px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; font-weight: 600; letter-spacing: .5px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--err); display: inline-block; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .wrap { display: flex; min-height: calc(100vh - 62px); }
+  nav {
+    width: 168px; border-right: 1px solid var(--line); padding: 18px 12px; flex-shrink: 0;
+  }
+  nav button {
+    display: block; width: 100%; text-align: left; padding: 11px 14px; margin-bottom: 6px;
+    background: transparent; color: var(--dim); border: 0; border-radius: 10px;
+    font-size: 14px; cursor: pointer;
+  }
+  nav button.active { background: linear-gradient(90deg, #241f4d, #1b2440); color: var(--text); }
+  main { flex: 1; padding: 24px 30px; max-width: 1060px; }
+  h2 { font-size: 15px; margin-bottom: 14px; color: var(--text); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; margin-bottom: 18px;
+  }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 300px; }
+  canvas#preview {
+    width: 480px; height: 270px; image-rendering: pixelated;
+    background: #000; border-radius: 8px; border: 1px solid var(--line); display: block;
+  }
+  .preview-cap { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  button.act {
+    background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff;
+    border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; cursor: pointer;
+  }
+  button.act:disabled { opacity: .5; cursor: wait; }
+  button.ghost {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 14px; font-size: 13px; cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--acc); }
+  input[type=text], input[type=number], select {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 9px 12px; font-size: 14px; outline: none;
+  }
+  input[type=color] { width: 42px; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); padding: 2px; }
+  label.f { color: var(--dim); font-size: 12px; display: block; margin-bottom: 5px; }
+  .views { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+  .views button { padding: 10px 8px; font-size: 13px; }
+  .status { font-size: 13px; color: var(--dim); margin-top: 10px; min-height: 18px; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--err); }
+  .bar { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-top: 10px; display: none; }
+  .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width .3s; }
+  .kbd-img { width: 100%; border-radius: 10px; border: 1px solid var(--line); margin-top: 4px; }
+  .hint { color: var(--dim); font-size: 12px; line-height: 1.7; margin-top: 10px; }
+  .agent-tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  .agent-tbl th { text-align: left; color: var(--dim); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .agent-tbl td { padding: 8px; border-bottom: 1px solid var(--line); }
+  .agent-tbl .a-btn { padding: 4px 10px; font-size: 12px; }
+  .agent-tbl .ok { color: var(--ok); } .agent-tbl .warn { color: var(--warn); }
+  input[type=file] { color: var(--dim); font-size: 13px; }
+  .tag { font-size: 11px; color: var(--acc2); border: 1px solid #2c3a63; padding: 1px 7px; border-radius: 20px; margin-left: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <div>
+    <h1>LEOBOG AMG65 <span class="tag">屏幕控制台</span></h1>
+    <div class="sub">逆向自官方 Windows 驱动 1.0.3.3 · 需 USB 有线连接</div>
+  </div>
+  <div style="margin-left:auto" class="sub" id="conn">连接中…</div>
+</header>
+
+<div class="wrap">
+  <nav>
+    <button class="active" data-tab="screen">🖥 小屏 LCD</button>
+    <button data-tab="strip">Brightness 长条屏</button>
+    <button data-tab="about">ℹ️ 说明</button>
+  </nav>
+
+  <main>
+    <!-- 屏幕 tab -->
+    <section id="tab-screen">
+      <div class="row">
+        <div class="col" style="max-width:520px">
+          <div class="card">
+            <h2>预览</h2>
+            <canvas id="preview" width="240" height="135"></canvas>
+            <div class="preview-cap">240 × 135 · RGB565 · 最多 130 帧</div>
+            <div class="status" id="status"></div>
+            <div class="bar" id="bar"><div></div></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card">
+            <h2>图片 / GIF 上传</h2>
+            <label class="f">选择文件：GIF 自动抽帧做动画；PNG/JPG/WebP 等静态图片直接整屏显示（自动缩放裁剪到 240×135）</label>
+            <input type="file" id="gifFile" accept=".gif,.png,.jpg,.jpeg,.webp,.bmp,image/*">
+            <div class="row" style="margin-top:10px">
+              <div><label class="f">帧率 FPS（仅 GIF）</label><input type="number" id="gifFps" value="12" min="2" max="50" style="width:90px"></div>
+              <div><label class="f">最多帧数（仅 GIF）</label><input type="number" id="gifMax" value="130" min="1" max="130" style="width:90px"></div>
+              <div style="align-self:flex-end"><button class="act" id="btnGif">上传到小屏</button></div>
+            </div>
+            <div class="hint">大 GIF 上传需要 1~8 分钟（约 2 秒/16 帧），静态图片 3 秒左右，期间不要拔线。</div>
+          </div>
+
+          <div class="card">
+            <h2>文字 / 纯色</h2>
+            <div class="row" style="align-items:flex-end">
+              <div style="flex:1;min-width:180px">
+                <label class="f">文字（留空则只发纯色背景）</label>
+                <input type="text" id="txt" placeholder="Hello / 你好" style="width:100%">
+              </div>
+              <div><label class="f">文字色</label><input type="color" id="fgColor" value="#ffd700"></div>
+              <div><label class="f">背景色</label><input type="color" id="bgColor" value="#101020"></div>
+              <div><label class="f">字号</label><input type="number" id="txtSize" value="64" min="12" max="120" style="width:80px"></div>
+              <div><button class="act" id="btnText">上屏</button></div>
+            </div>
+            <div class="row" style="align-items:flex-end;margin-top:12px">
+              <div><label class="f">纯色填充</label><input type="color" id="solidColor" value="#ff6600"></div>
+              <div><button class="ghost" id="btnColor">整屏填充</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>时间同步</h2>
+        <div class="row" style="align-items:center">
+          <button class="ghost" id="btnTime">🕐 同步系统时间到键盘</button>
+          <span class="hint" style="margin:0">给键盘自带的时间显示校时。</span>
+        </div>
+        <p class="hint" style="margin-top:10px">点阵屏的内置灯效（CPU / 时间 / 圣诞树 / 极光 / 彩虹 等）只能用键盘上的灯效切换键循环切换，
+        固件没有从电脑直接选灯效的命令（官方驱动也没有）。上传动画会占用槽 6 并自动切过去。</p>
+      </div>
+
+      <div class="card">
+        <h2>键盘</h2>
+        <img class="kbd-img" src="/static/keyboard.png" alt="AMG65">
+      </div>
+    </section>
+
+    <!-- 长条屏 tab -->
+    <section id="tab-strip" style="display:none">
+      <div class="row">
+        <div class="col" style="max-width:560px">
+          <div class="card">
+            <h2>长条点阵屏预览 <span class="tag">63 × 5 = 315 LED</span></h2>
+            <canvas id="stripPreview" width="560" height="56"
+              style="width:560px;height:56px;image-rendering:pixelated;background:#000;border-radius:6px;border:1px solid var(--line);display:block"></canvas>
+            <div class="status" id="stripStatus"></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <h2>实时</h2>
+            <div class="row" style="align-items:flex-end">
+              <div style="align-self:flex-end">
+                <label class="f">颜色</label><input type="color" id="stripColor" value="#00ffc8">
+              </div>
+              <div><button class="act" id="btnClock">🕐 显示时钟</button></div>
+              <div><button class="act" id="btnCpu">📊 CPU/内存</button></div>
+              <div><button class="ghost" id="btnStripOff">停止</button></div>
+            </div>
+            <div class="hint">实时帧（04 35）每秒补发，不写 flash；停止后约 2.5 秒键盘自动切到灯效槽 7。</div>
+          </div>
+
+          <div class="card">
+            <h2>文字 / 效果</h2>
+            <div class="row" style="align-items:flex-end">
+              <div style="flex:1;min-width:150px">
+                <label class="f">文字（5×7 像素字体）</label>
+                <input type="text" id="stripText" value="HELLO" style="width:100%">
+              </div>
+              <div><button class="act" id="btnStripText">上屏</button></div>
+              <div><button class="ghost" id="btnRainbow">🌈 彩虹</button></div>
+              <div><button class="ghost" id="btnStripColor">纯色填充</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="card">
+            <h2>官方预制灯效 <span class="tag">04 33 常驻</span></h2>
+            <div class="row" id="presetBtns" style="align-items:flex-end"></div>
+            <div class="row" style="align-items:center;margin-top:10px">
+              <label class="f" style="margin:0">帧间隔</label>
+              <input type="range" id="presetDelay" min="30" max="200" step="10" value="80" style="width:160px">
+              <span class="hint" style="margin:0" id="presetDelayVal">80 ms</span>
+            </div>
+            <div class="hint">素材取自官方驱动 db/ledlayer_v2.data（70×7），已转成 63×5。上传约 5–10 秒，会写 flash，断电保留。</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <h2>久坐提醒</h2>
+            <div class="row" style="align-items:flex-end">
+              <div>
+                <label class="f">间隔</label>
+                <select id="sitMinutes">
+                  <option value="0">关闭</option><option value="30">30 分钟</option>
+                  <option value="45">45 分钟</option><option value="60">60 分钟</option>
+                  <option value="90">90 分钟</option>
+                </select>
+              </div>
+              <div><label class="f">颜色</label><input type="color" id="sitColor" value="#ff1e3c"></div>
+              <div><button class="act" id="btnSitTest">❤ 试一下</button></div>
+              <div><button class="ghost" id="btnSitDismiss">知道了</button></div>
+            </div>
+            <div class="status" id="sitStatus"></div>
+            <div class="hint">到点后长条屏闪烁 9 颗心 60 秒（实时帧 04 35，不写 flash），结束后自动重新计时。计时在本机服务里，需保持面板服务运行。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🚦 编程状态灯 <span class="tag">Claude Code · Codex</span></h2>
+        <div class="row" style="align-items:center">
+          <div><button class="act" id="btnAgent">开启状态灯</button></div>
+          <div><button class="ghost" id="btnAgentOff">停止</button></div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="agentAutostart"> 服务启动时自动开启
+          </label>
+          <div class="status" id="agentStatus" style="margin:0"></div>
+        </div>
+        <table class="agent-tbl">
+          <thead><tr><th>Agent</th><th>当前状态</th><th>会话</th><th>最近事件</th><th>钩子</th><th></th></tr></thead>
+          <tbody>
+            <tr data-agent="claude"><td>CC · Claude Code</td><td class="a-state"></td><td class="a-sess"></td><td class="a-last"></td><td class="a-hook"></td>
+              <td><button class="ghost a-btn"></button></td></tr>
+            <tr data-agent="codex"><td>CX · Codex</td><td class="a-state"></td><td class="a-sess"></td><td class="a-last"></td><td class="a-hook"></td>
+              <td><button class="ghost a-btn"></button></td></tr>
+          </tbody>
+        </table>
+        <div class="hint">左半屏 CC = Claude Code，右半屏 CX = Codex。🟡 黄灯流水 = 工作中，🔴 红灯闪 = 等你确认权限，🟢 绿灯 = 本轮完成；同一边多个会话取最紧急的。
+          安装钩子会改写 ~/.claude/settings.json / ~/.codex/hooks.json（改前自动备份 .bak-时间）。
+          Codex 新钩子需在交互式 Codex 里 <b>/hooks</b> 或启动提示中选 Trust all 后才会运行。实时帧 04 35，不写 flash。</div>
+      </div>
+
+      <div class="card">
+        <h2>图片 / GIF 上屏（自动缩放到 63×5 点阵）</h2>
+        <input type="file" id="stripFile" accept=".gif,.png,.jpg,.jpeg,.webp,.bmp,image/*">
+        <div class="row" style="margin-top:10px;align-items:center">
+          <button class="act" id="btnStripUpload">上传到长条屏</button>
+          <span class="hint" style="margin:0">GIF 自动抽帧成点阵动画；静态图片单帧显示。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 关于 tab -->
+    <section id="tab-about" style="display:none">
+      <div class="card">
+        <h2>这是什么</h2>
+        <p class="hint" style="font-size:13px">
+          官方只有 Windows 驱动。本工具通过逆向 DeviceDriver.exe 1.0.3.3 得到 USB 协议：<br>
+          · 命令通道 = USB 接口 2（HID usage FF68/61，64 字节报告）<br>
+          · 数据通道 = USB 接口 3（usage FF67/61，4096 字节报告走中断 OUT）<br>
+          · 屏幕 240×135 RGB565，单次最多 130 帧，帧延时 = 毫秒/2<br><br>
+          支持功能：GIF 上传 / 文字上屏 / 纯色 / 时间校正 / 长条屏常驻动画与实时帧。<br>
+          已知限制：必须有线连接；蓝牙模式键盘不暴露配置通道；上传会覆盖键盘上的自定义动画视图。
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const status = (t, cls='') => { const el = $('#status'); el.textContent = t; el.className = 'status ' + cls; };
+const bar = $('#bar'), barIn = bar.firstElementChild;
+
+function drawPreview(dataURL) {
+  const img = new Image();
+  img.onload = () => {
+    const c = $('#preview'), ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, 240, 135);
+    ctx.drawImage(img, 0, 0, 240, 135);
+  };
+  img.src = dataURL;
+}
+
+async function post(url, body, headers={}) {
+  const r = await fetch(url, {method:'POST', body, headers});
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+
+function busy(on, p) {
+  document.querySelectorAll('button.act').forEach(b => b.disabled = on);
+  bar.style.display = on ? 'block' : 'none';
+  barIn.style.width = (p || 8) + '%';
+}
+
+$('#btnGif').onclick = async () => {
+  const f = $('#gifFile').files[0];
+  if (!f) return status('先选一个文件', 'err');
+  const isGif = /\.gif$/i.test(f.name) || f.type === 'image/gif';
+  busy(true, 10); status(isGif ? '上传中…大 GIF 需要几分钟' : '上传图片中…');
+  try {
+    const buf = await f.arrayBuffer();
+    const url = isGif
+      ? '/api/upload?kind=gif&fps=' + $('#gifFps').value + '&max=' + $('#gifMax').value
+      : '/api/upload?kind=image&delay=100';
+    const j = await post(url, buf, {'Content-Type':'application/octet-stream'});
+    drawPreview(j.preview);
+    status(isGif ? `✔ 动画已上传 ${j.frames} 帧，用时 ${j.seconds}s` : `✔ 图片已上屏，用时 ${j.seconds}s`, 'ok');
+  } catch (e) { status('✖ ' + e.message, 'err'); }
+  busy(false);
+};
+
+$('#btnText').onclick = async () => {
+  busy(true, 30); status('生成文字画面…');
+  try {
+    const j = await post('/api/upload?kind=text', JSON.stringify({
+      text: $('#txt').value, color: $('#fgColor').value.slice(1),
+      bg: $('#bgColor').value.slice(1), size: +$('#txtSize').value, delay: 100
+    }), {'Content-Type':'application/json'});
+    drawPreview(j.preview);
+    status('✔ 文字已上屏', 'ok');
+  } catch (e) { status('✖ ' + e.message, 'err'); }
+  busy(false);
+};
+
+$('#btnColor').onclick = async () => {
+  busy(true, 30); status('填充中…');
+  try {
+    const j = await post('/api/upload?kind=color', JSON.stringify({rgb: $('#solidColor').value.slice(1), delay: 100}),
+                         {'Content-Type':'application/json'});
+    drawPreview(j.preview);
+    status('✔ 已填充', 'ok');
+  } catch (e) { status('✖ ' + e.message, 'err'); }
+  busy(false);
+};
+
+$('#btnTime').onclick = async () => {
+  busy(true, 50); status('同步时间…');
+  try {
+    const j = await post('/api/time', '{}', {'Content-Type':'application/json'});
+    status(j.ok ? '✔ 时间已同步' : '✖ 同步失败', j.ok ? 'ok' : 'err');
+  } catch (e) { status('✖ ' + e.message, 'err'); }
+  busy(false);
+};
+
+async function pollStrip() {
+  try {
+    const r = await fetch('/api/strip/status'); const j = await r.json();
+    const names = {clock: '🕐 时钟运行中', cpu: '📊 CPU 监控中', agent: '🚦 编程状态灯运行中', null: '空闲'};
+    if (j.mode) stripStatus(`${names[j.mode] || j.mode}` + (j.mode === 'clock' ? ` · ${j.time}` : ''), 'ok');
+  } catch (e) {}
+  setTimeout(pollStrip, 3000);
+}
+pollStrip();
+
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/status'); const j = await r.json();
+    $('#dot').classList.toggle('on', !!j.ok);
+    $('#conn').textContent = j.ok ? '已连接 · ' + j.device : (j.error ? '未连接: ' + j.error : '未连接');
+  } catch (e) {
+    $('#dot').classList.remove('on'); $('#conn').textContent = '服务未响应';
+  }
+  setTimeout(pollStatus, 4000);
+}
+pollStatus();
+
+// ====== 长条屏 ======
+const stripStatus = (t, cls='') => { const el = $('#stripStatus'); el.textContent = t; el.className = 'status ' + cls; };
+function drawStrip(dataURL) {
+  const img = new Image();
+  img.onload = () => {
+    const c = $('#stripPreview'), ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, 560, 56);
+    ctx.drawImage(img, 0, 0, 560, 56);
+  };
+  img.src = dataURL;
+}
+$('#btnClock').onclick = async () => {
+  stripStatus('时钟启动…');
+  try {
+    await post('/api/strip', JSON.stringify({mode:'clock', color: $('#stripColor').value.slice(1)}), {'Content-Type':'application/json'});
+    stripStatus('✔ 时钟运行中', 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnCpu').onclick = async () => {
+  stripStatus('CPU 监控启动…');
+  try {
+    await post('/api/strip', JSON.stringify({mode:'cpu', color: $('#stripColor').value.slice(1)}), {'Content-Type':'application/json'});
+    stripStatus('✔ CPU 监控运行中', 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnStripOff').onclick = async () => {
+  try { await post('/api/strip', JSON.stringify({mode:'off'}), {'Content-Type':'application/json'}); stripStatus('已停止'); }
+  catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnStripText').onclick = async () => {
+  try {
+    const j = await post('/api/strip', JSON.stringify({mode:'text', text: $('#stripText').value, color: $('#stripColor').value.slice(1)}), {'Content-Type':'application/json'});
+    if (j.preview) drawStrip(j.preview);
+    stripStatus('✔ 文字已上屏', 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnRainbow').onclick = async () => {
+  try {
+    const j = await post('/api/strip', JSON.stringify({mode:'rainbow'}), {'Content-Type':'application/json'});
+    if (j.preview) drawStrip(j.preview);
+    stripStatus('✔ 彩虹动画已上传', 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnStripColor').onclick = async () => {
+  try {
+    const j = await post('/api/strip', JSON.stringify({mode:'color', color: $('#stripColor').value.slice(1)}), {'Content-Type':'application/json'});
+    if (j.preview) drawStrip(j.preview);
+    stripStatus('✔ 已填充', 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnStripUpload').onclick = async () => {
+  const f = $('#stripFile').files[0];
+  if (!f) return stripStatus('先选文件', 'err');
+  const isGif = /\.gif$/i.test(f.name) || f.type === 'image/gif';
+  stripStatus(isGif ? 'GIF 抽帧上传中…' : '图片上传中…');
+  try {
+    const buf = await f.arrayBuffer();
+    const j = await post('/api/strip/upload?kind=' + (isGif ? 'gif' : 'image'), buf, {'Content-Type':'application/octet-stream'});
+    if (j.preview) drawStrip(j.preview);
+    stripStatus(`✔ 已上传 ${j.frames} 帧，${j.seconds}s`, 'ok');
+  } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+
+// ====== 预制灯效 / 久坐提醒 ======
+const jpost = (url, obj) => post(url, JSON.stringify(obj), {'Content-Type':'application/json'});
+$('#presetDelay').oninput = e => $('#presetDelayVal').textContent = e.target.value + ' ms';
+(async () => {
+  try {
+    const j = await (await fetch('/api/strip/presets')).json();
+    for (const p of j.presets) {
+      const d = document.createElement('div'), b = document.createElement('button');
+      b.className = 'ghost'; b.textContent = p.label;
+      b.onclick = async () => {
+        stripStatus(`「${p.label}」上传中…`);
+        try {
+          const r = await jpost('/api/strip', {mode:'preset', name:p.name, delay:+$('#presetDelay').value});
+          if (!r.ok) throw new Error(r.error);
+          if (r.preview) drawStrip(r.preview);
+          stripStatus(`✔ ${p.label} 已上传 ${r.frames} 帧，${r.seconds}s`, 'ok');
+        } catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+      };
+      d.appendChild(b); $('#presetBtns').appendChild(d);
+    }
+  } catch (e) {}
+})();
+
+function showSit(s) {
+  if (!s) return;
+  if (document.activeElement !== $('#sitMinutes')) $('#sitMinutes').value = String(s.minutes);
+  const el = $('#sitStatus');
+  if (s.active) { el.textContent = '❤ 提醒中…'; el.className = 'status ok'; }
+  else if (s.minutes && s.remain != null) {
+    const m = Math.floor(s.remain / 60), sec = s.remain % 60;
+    el.textContent = `下次提醒还有 ${m} 分 ${String(sec).padStart(2,'0')} 秒`; el.className = 'status';
+  } else { el.textContent = '已关闭'; el.className = 'status'; }
+}
+const sitColor = () => $('#sitColor').value.slice(1);
+$('#sitMinutes').onchange = async () => {
+  try { showSit(await jpost('/api/strip/sit', {minutes:+$('#sitMinutes').value, color:sitColor()})); }
+  catch (e) { $('#sitStatus').textContent = '✖ ' + e.message; }
+};
+$('#btnSitTest').onclick = async () => {
+  try { showSit(await jpost('/api/strip/sit', {action:'test', seconds:10, color:sitColor()})); }
+  catch (e) { $('#sitStatus').textContent = '✖ ' + e.message; }
+};
+$('#btnSitDismiss').onclick = async () => {
+  try { showSit(await jpost('/api/strip/sit', {action:'dismiss'})); }
+  catch (e) { $('#sitStatus').textContent = '✖ ' + e.message; }
+};
+const AGENT_TXT = {idle:'⚪ 空闲', working:'🟡 工作中', waiting:'🔴 等你操作', done:'🟢 已完成'};
+(async function pollSit() {
+  try {
+    const j = await (await fetch('/api/strip/status')).json();
+    showSit(j.sit);
+    const a = j.agents;
+    if (a) {
+      for (const k of ['claude', 'codex']) {
+        const tr = document.querySelector(`tr[data-agent=${k}]`);
+        tr.querySelector('.a-state').textContent = AGENT_TXT[a[k].state];
+        tr.querySelector('.a-sess').textContent = a[k].sessions.length;
+      }
+      const el = $('#agentStatus');
+      el.textContent = j.mode === 'agent' ? '● 状态灯运行中' : '○ 状态灯未开启';
+      el.className = 'status ' + (j.mode === 'agent' ? 'ok' : '');
+    }
+  } catch (e) {}
+  setTimeout(pollSit, 1000);
+})();
+$('#btnAgent').onclick = async () => {
+  try { await jpost('/api/strip', {mode:'agent'}); stripStatus('✔ 编程状态灯运行中', 'ok'); }
+  catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#btnAgentOff').onclick = async () => {
+  try { await jpost('/api/strip', {mode:'off'}); stripStatus('状态灯已停止'); }
+  catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+};
+$('#agentAutostart').onchange = async e => {
+  try { await jpost('/api/agent/settings', {autostart: e.target.checked}); }
+  catch (err) { stripStatus('✖ ' + err.message, 'err'); }
+};
+const ago = s => s == null ? '—' : s < 60 ? `${s} 秒前` : s < 3600 ? `${Math.floor(s/60)} 分钟前` : `${Math.floor(s/3600)} 小时前`;
+function showHooks(h) {
+  for (const k of ['claude', 'codex']) {
+    const x = h[k], tr = document.querySelector(`tr[data-agent=${k}]`);
+    tr.querySelector('.a-last').textContent = x.last_event ? `${x.last_event} · ${ago(x.last_ago)}` : '还没收到';
+    let txt, cls;
+    if (!x.installed) { txt = '未安装'; cls = ''; }
+    else if (x.installed < x.total) { txt = `部分安装 ${x.installed}/${x.total}`; cls = 'warn'; }
+    else if (k === 'codex' && x.trusted < x.total && !x.last_event) { txt = `已安装 · 待信任 ${x.trusted}/${x.total}`; cls = 'warn'; }
+    else { txt = '✔ 已安装'; cls = 'ok'; }
+    const hk = tr.querySelector('.a-hook'); hk.textContent = txt; hk.className = 'a-hook ' + cls;
+    const b = tr.querySelector('.a-btn');
+    b.textContent = x.installed ? '卸载钩子' : '安装钩子';
+    b.onclick = async () => {
+      const action = x.installed ? 'uninstall' : 'install';
+      if (action === 'uninstall' && !confirm(`卸载 ${k} 的状态灯钩子？`)) return;
+      try { showHooks((await jpost('/api/agent/hooks', {agent: k, action})).hooks); }
+      catch (e) { stripStatus('✖ ' + e.message, 'err'); }
+    };
+  }
+}
+(async function pollHooks() {
+  try {
+    const j = await (await fetch('/api/agent/hooks')).json();
+    showHooks(j.hooks);
+    if (document.activeElement !== $('#agentAutostart')) $('#agentAutostart').checked = j.autostart;
+  } catch (e) {}
+  setTimeout(pollHooks, 3000);
+})();
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  $('#tab-screen').style.display = b.dataset.tab === 'screen' ? '' : 'none';
+  $('#tab-strip').style.display = b.dataset.tab === 'strip' ? '' : 'none';
+  $('#tab-about').style.display = b.dataset.tab === 'about' ? '' : 'none';
+});
+</script>
+</body>
+</html>

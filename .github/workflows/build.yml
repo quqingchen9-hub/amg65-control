@@ -1,0 +1,119 @@
+name: Build macOS app
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: Build macOS arm64
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify Apple Silicon runner
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          uname -m
+          sw_vers
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Python backend
+        run: bash desktop/scripts/build-backend.sh
+
+      - name: Build macOS DMG
+        working-directory: desktop
+        run: npm run dist
+
+      - name: Smoke-test packaged backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          port=18655
+          log="$RUNNER_TEMP/amg65-backend.log"
+          desktop/backend/dist/amg65-backend/amg65-backend "$port" >"$log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+
+          for _ in {1..40}; do
+            if curl --fail --silent "http://127.0.0.1:$port/api/health" \
+              | grep -q '"service": "amg65-panel"'; then
+              echo "Backend health check passed."
+              exit 0
+            fi
+            sleep 0.5
+          done
+
+          cat "$log"
+          exit 1
+
+      - name: Inspect build output
+        run: ls -lh desktop/dist/*.dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMG65-Control-macOS-arm64
+          path: desktop/dist/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-macos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: AMG65-Control-macOS-arm64
+          path: release
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/*.dmg --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/*.dmg \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi

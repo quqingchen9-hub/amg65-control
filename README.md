@@ -7,6 +7,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](#web-panel)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron&logoColor=white)](#desktop-app)
 [![License](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
+[![Build](https://github.com/quqingchen9-hub/amg65-control/actions/workflows/build.yml/badge.svg)](https://github.com/quqingchen9-hub/amg65-control/actions/workflows/build.yml)
 
 ![AMG65 Control overview](docs/assets/overview.png)
 
@@ -93,6 +94,23 @@ Finder's **Open** context menu or allow it under **System Settings > Privacy
 & Security**. See [desktop/README.md](desktop/README.md) for the app layout
 and menu-bar behavior.
 
+### Automated builds
+
+GitHub Actions builds the Apple Silicon DMG on every push to `main`, pull
+request, and manual workflow run. Open the latest
+[Build macOS app](https://github.com/quqingchen9-hub/amg65-control/actions/workflows/build.yml)
+run and download `AMG65-Control-macOS-arm64` from **Artifacts**.
+
+Tags beginning with `v` also publish the DMG as a GitHub Release:
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+CI verifies the packaged backend's health endpoint, but it cannot test the
+USB keyboard connection. Builds remain ad-hoc signed and are not notarized.
+
 ## Protocol
 
 The full reverse-engineered protocol is documented in
@@ -149,6 +167,7 @@ amg65-control/
 ├── panel/                  web panel and local HTTP API
 ├── tool/                   USB protocol, matrix renderer, presets, CLI
 ├── desktop/                React + Electron app
+├── .github/workflows/      automated macOS build
 ├── docs/protocol.md        reverse-engineered USB protocol
 ├── re_scripts/             optional static-analysis helpers
 ├── requirements.txt        runtime dependencies
